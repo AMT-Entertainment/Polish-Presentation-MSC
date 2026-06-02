@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vintage Book Presentation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <style>
+        /* Leather Background & Reset */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: #2b1a10;
+            background-image: repeating-linear-gradient(45deg, #25160d 25%, transparent 25%, transparent 75%, #25160d 75%, #25160d), repeating-linear-gradient(45deg, #25160d 25%, #2b1a10 25%, #2b1a10 75%, #25160d 75%, #25160d);
+            background-position: 0 0, 10px 10px;
+            background-size: 20px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: 'Georgia', serif;
+            color: #332211;
+            overflow: hidden;
+            transition: background 0.5s ease;
+        }
+
+        /* Fullscreen State */
+        body.fullscreen {
+            background: #1a0f08;
+        }
+
+        /* The Leather Cover Edge */
+        .book-wrapper {
+            position: relative;
+            background: #3e1f0e;
+            padding: 15px 25px 15px 15px;
+            border-radius: 8px 20px 20px 8px;
+            box-shadow: 10px 15px 30px rgba(0,0,0,0.8), inset 2px 0 5px rgba(255,255,255,0.1);
+            width: 95%;
+            max-width: 1200px;
+            height: 85vh;
+            max-height: 800px;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.fullscreen .book-wrapper {
+            max-width: 98vw;
+            height: 95vh;
+            max-height: none;
+        }
+
+        /* The Parchment Paper */
+        .book {
+            position: relative;
+            background-color: #f4ebd0;
+            background-image: linear-gradient(90deg, rgba(0,0,0,0.1) 0%, transparent 5%, transparent 95%, rgba(0,0,0,0.05) 100%);
+            width: 100%;
+            height: 100%;
+            border-radius: 3px 12px 12px 3px;
+            box-shadow: inset 6px 0 10px rgba(0,0,0,0.15), 2px 2px 5px rgba(0,0,0,0.3);
+            overflow: hidden;
+            counter-reset: pageNum;
+        }
+
+        /* Spreads */
+        .spread {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none;
+            width: 100%;
+            height: 100%;
+            transform-origin: center center;
+        }
+
+        .spread.active {
+            display: flex;
+            animation: fadeIn 0.6s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Double Spread Layout */
+        .spread.double .page {
+            width: 50%;
+            height: 100%;
+            padding: 50px 40px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Spine Effect for Double Spreads */
+        .spread.double::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(0,0,0,0.1);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            z-index: 5;
+        }
+
+        /* Single Spread Layout (Title Page or Full Image) */
+        .spread.single .page {
+            width: 100%;
+            height: 100%;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* Title Spread - Cover Look */
+        .spread.title-spread {
+            background-color: #3e1f0e;
+            background-image: radial-gradient(circle at center, #4e2a16 0%, #3e1f0e 100%);
+            color: #f4ebd0;
+        }
+        .spread.title-spread .page {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            padding: 60px;
+            text-align: left;
+        }
+        .spread.title-spread .cover-text {
+            flex: 1;
+            padding-right: 40px;
+        }
+        .spread.title-spread .cover-image {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+        .spread.title-spread h1 {
+            color: #f4ebd0;
+            text-align: left;
+            border-bottom: 3px solid #a68a61;
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        .spread.title-spread .subtitle {
+            color: #d4c4a8;
+            font-size: 24px;
+        }
+        .spread.title-spread .author {
+            color: #a68a61;
+            font-size: 22px;
+            margin-top: 30px;
+        }
+        .spread.title-spread .cover-image img {
+            max-width: 100%;
+            max-height: 65vh;
+            border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6), inset 0 0 20px rgba(0,0,0,0.4);
+            border: 2px solid #25160d;
+        }
+
+        /* Global Preloader */
+        #preloader {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #2b1a10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+        .loader-line {
+            width: 200px;
+            height: 4px;
+            background: rgba(244, 235, 208, 0.2);
+            border-radius: 2px;
+            position: relative;
+            overflow: hidden;
+        }
+        .loader-pill {
+            position: absolute;
+            top: 0; left: -50px;
+            width: 50px;
+            height: 100%;
+            background: #f4ebd0;
+            border-radius: 2px;
+            animation: slidePill 1.5s infinite ease-in-out;
+            box-shadow: 0 0 10px rgba(244, 235, 208, 0.5);
+        }
+        @keyframes slidePill {
+            0% { left: -50px; }
+            50% { left: 150px; }
+            100% { left: -50px; }
+        }
+        #preloader p {
+            color: #f4ebd0;
+            margin-top: 20px;
+            letter-spacing: 6px;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Popup Image Loader */
+        .img-container {
+            position: relative;
+            width: 100%;
+            max-height: 250px;
+            margin-bottom: 15px;
+            display: none;
+            overflow: hidden;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            background: #e8dfc5;
+        }
+        .spinner {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px; height: 30px;
+            border: 3px solid rgba(62, 31, 14, 0.2);
+            border-top-color: #3e1f0e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        /* Timeline Styling */
+        .timeline-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            padding: 40px 20px;
+            margin-top: 20px;
+            scrollbar-width: thin;
+            scrollbar-color: #a68a61 transparent;
+            cursor: grab;
+        }
+        .timeline-wrapper:active { cursor: grabbing; }
+        .timeline {
+            position: relative;
+            display: flex;
+            align-items: center;
+            min-width: 1200px;
+            height: 200px;
+            padding: 0 50px;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #a68a61;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+        .timeline-item {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 2;
+        }
+        .timeline-year {
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 25px;
+            color: #4a2e15;
+            background: #f4ebd0;
+            padding: 2px 8px;
+        }
+        .timeline-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: white;
+            border: 3px solid #3e1f0e;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #3e1f0e;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .timeline-btn:hover {
+            transform: scale(1.2);
+            background: #3e1f0e;
+            color: white;
+        }
+
+        /* Timeline Popup */
+        #timeline-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            backdrop-filter: blur(3px);
+        }
+        #timeline-popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #f4ebd0;
+            padding: 40px;
+            border: 8px solid #3e1f0e;
+            border-radius: 4px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            z-index: 2001;
+            max-width: 450px;
+            width: 90%;
+            text-align: center;
+            animation: popupScale 0.3s ease-out;
+        }
+        @keyframes popupScale {
+            from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+        #timeline-popup h3 {
+            margin-bottom: 15px;
+            color: #3e1f0e;
+            font-size: 24px;
+            border-bottom: 2px solid #a68a61;
+            padding-bottom: 10px;
+        }
+        #timeline-popup p {
+            text-align: center;
+            font-size: 18px;
+        }
+        #timeline-popup .close-popup {
+            margin-top: 25px;
+            padding: 8px 20px;
+            background: #3e1f0e;
+            color: #f4ebd0;
+            border: none;
+            cursor: pointer;
+            font-family: 'Georgia', serif;
+            font-size: 16px;
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 42px;
+            color: #4a2e15;
+            margin-bottom: 10px;
+        }
+        h2 {
+            font-size: 28px;
+            color: #5d3a1a;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #a68a61;
+            padding-bottom: 10px;
+            width: 100%;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 22px;
+            font-style: italic;
+            color: #6d4c2f;
+            margin-bottom: 30px;
+        }
+        .author {
+            font-size: 20px;
+            font-weight: bold;
+            color: #332211;
+            margin-top: 40px;
+        }
+        p {
+            font-size: 19px;
+            line-height: 1.6;
+            text-align: justify;
+            margin-bottom: 15px;
+            color: #332211;
+        }
+
+        /* Glued-in Photo Frame */
+        .photo-frame {
+            background: #fff;
+            padding: 12px 12px 35px 12px;
+            box-shadow: 3px 5px 15px rgba(0,0,0,0.3);
+            display: inline-block;
+            max-width: 80%;
+            margin: 20px auto;
+            transition: transform 0.3s ease;
+        }
+        .photo-frame img {
+            display: block;
+            width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+        }
+        .spread.double .photo-frame {
+            max-width: 90%;
+        }
+
+        /* Rotations for "Organic" feel */
+        .rotate-left { transform: rotate(-2deg); }
+        .rotate-right { transform: rotate(1.5deg); }
+        .rotate-subtle { transform: rotate(0.5deg); }
+
+        /* Navigation Arrows */
+        .nav-zone {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 15%;
+            z-index: 20;
+            cursor: pointer;
+        }
+        .nav-left { left: 0; }
+        .nav-right { right: 0; }
+
+        /* Page Numbering */
+        .page-num {
+            position: absolute;
+            bottom: 20px;
+            font-style: italic;
+            color: #8c7355;
+            font-size: 14px;
+        }
+        .left-page .page-num { left: 30px; }
+        .right-page .page-num { right: 30px; }
+        .spread.single .page-num { width: 100%; text-align: center; left: 0; }
+
+        /* Fullscreen Button - Small, white, round, bottom center */
+        #fullscreen-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 44px;
+            height: 44px;
+            background: white;
+            border: none;
+            border-radius: 50%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        #fullscreen-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        }
+        #fullscreen-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: #3e1f0e;
+        }
+
+        /* Final Page Scatter */
+        .scatter-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: rgba(0,0,0,0.02);
+        }
+        .scatter-photo {
+            position: absolute;
+            background: white;
+            padding: 8px 8px 25px 8px;
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.2);
+            border: 1px solid #ddd;
+            transition: transform 0.3s ease;
+            animation: floatSlow 6s infinite ease-in-out;
+        }
+        .scatter-photo img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translate(0, 0) rotate(var(--rot)); }
+            50% { transform: translate(var(--tx), var(--ty)) rotate(calc(var(--rot) + 2deg)); }
+        }
+        .koniec-text {
+            font-family: 'Playfair Display', serif;
+            font-size: 80px;
+            color: #3e1f0e;
+            text-transform: uppercase;
+            letter-spacing: 10px;
+            opacity: 0.8;
+        }
+
+        /* Mobile specific adjustments */
+        @media (max-width: 768px) {
+            .spread.double, .spread.title-spread .page { flex-direction: column; overflow-y: auto; }
+            .spread.title-spread .page { text-align: center; }
+            .spread.title-spread .cover-text { padding-right: 0; margin-bottom: 20px; }
+            .spread.title-spread h1 { text-align: center; font-size: 36px; }
+            .spread.double .page { width: 100%; height: auto; padding: 30px; }
+            .spread.double::before { display: none; }
+            .book-wrapper { height: 90vh; }
+            h1 { font-size: 32px; }
+            .subtitle { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="preloader">
+    <div class="loader-line">
+        <div class="loader-pill"></div>
+    </div>
+    <p>Ładowanie...</p>
+</div>
+
+<div class="book-wrapper">
+    <div class="book" id="book">
+
+        <div class="nav-zone nav-left" onclick="prevSpread()"></div>
+        <div class="nav-zone nav-right" onclick="nextSpread()"></div>
+
+        <!-- Title Spread -->
+        <div class="spread single title-spread active">
+            <div class="page">
+                <div class="cover-text">
+                    <h1>Maria Skłodowska-Curie</h1>
+                    <p class="subtitle"></p>
+                    <p class="author">Antoni Baranski-Ziemba</p>
+                </div>
+                <div class="cover-image">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/c/ce/Marie_Curie_%28Nobel-Chem%29.jpg" alt="Book Cover">
+                </div>
+                <div class="page-num" style="color: #a68a61;">Cover</div>
+            </div>
+        </div>
+
+        <!-- Content Spread 1 -->
+        <div class="spread double">
+            <div class="page left-page">
+                <h2>Kim była?</h2>
+                <ul style="list-style-type: disc; padding-left: 20px; font-size: 19px; line-height: 1.6; color: #332211;">
+                    <li style="margin-bottom: 15px;">Maria Skłodowska-Curie była wybitną polsko-francuską naukowczynią.</li>
+                    <li style="margin-bottom: 15px;">Żyła od 1867 do 1934 roku.</li>
+                    <li style="margin-bottom: 15px;">Maria Skłodowska-Curie dostała dwie Nagrody Nobla z dziedziny fizyki i chemii.</li>
+                </ul>
+                <div class="page-num">2</div>
+            </div>
+            <div class="page right-page">
+                <div class="photo-frame rotate-right">
+                    <img src="https://s14.tvp.pl/images2/4/e/f/uid_4ef36da6f5114aab9ac32679663efeea_width_1200_play_0_pos_0_gs_0_height_675.jpg" alt="Marie Curie">
+                </div>
+                <p> </p>
+                <div class="page-num">3</div>
+            </div>
+        </div>
+
+        <!-- Content Spread 2 (Timeline) -->
+        <div class="spread single">
+            <div class="page">
+                <h2>Oś Czasu</h2>
+                <div class="timeline-wrapper" id="timeline-scroll">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-year">1867</div>
+                            <button class="timeline-btn" onclick="showPopup('1867', 'Maria urodziła się w Warszawie.', 'https://rarehistoricalphotos.com/wp-content/uploads/2023/02/Warsaw-photochrom-19th-century-photos-small.jpg')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1891</div>
+                            <button class="timeline-btn" onclick="showPopup('1891', 'Aby studiować, wyjechała do Paryża na Sorbonie, żyjąc po skryjomu.', 'https://educat.study/wp-content/uploads/2023/12/15967326622_55a4e2aa7e_b.jpg')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1898</div>
+                            <button class="timeline-btn" onclick="showPopup('1898', 'Razem z mężem, Piotrem Curie, odkryła dwa nowe pierwiastki promieniotwórcze: najpierw polon i kilka miesięcy później rad.')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1903</div>
+                            <button class="timeline-btn" onclick="showPopup('1903', 'Otrzymała razem z mężem i Henrim Becquerelem swoją pierwszą Nagrodę Nobla z fizyki za badania nad zjawiskiem radiacji.', 'https://webp-konwerter.incdn.pl/eyJmIjoiaHR0cHM6Ly9nLmluZm9yLnBs/L3AvX2ZpbGVzLzM3NTg0MDAwLzEtcG9r/b2pvd2EtbmFncm9kYS1ub2JsYS0yMDIy/LTM3NTgzNjUyLmpwZyIsInciOjEwMDB9.webp')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1906</div>
+                            <button class="timeline-btn" onclick="showPopup('1906', 'Po śmierci męża przejęła jego pozycję na uniwersytecie, stając się pierwszą kobietą-profesorem w historii uczelni.', 'https://cdn.sortiraparis.com/images/80/77153/378747-la-bibliotheque-de-la-sorbonne-dans-le-5e-arrondissement.jpg')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1911</div>
+                            <button class="timeline-btn" onclick="showPopup('1911', 'Zdobyła drugą Nagrodę Nobla, tym razem z chemii, za wydzielenie czystego radu.')">?</button>
+                        </div>
+                        <div class="timeline-item">
+                            <div class="timeline-year">1914–1918</div>
+                            <button class="timeline-btn" onclick="showPopup('1914–1918', 'I Wojna Światowa: Zorganizowała flotę mobilnych stacji RTG, którymi osobiście jeździła na linię frontu, ratując życie rannych żołnierzy.')">?</button>
+                        </div>
+                    </div>
+                </div>
+                <p style="text-align: center; font-style: italic; color: #8c7355; margin-top: 20px;">(Przewiń lub przeciągnij w prawo, aby zobaczyć więcej)</p>
+                <div class="page-num">3</div>
+            </div>
+        </div>
+
+        <!-- Content Spread 3 (Why I Admire Her) -->
+        <div class="spread double">
+            <div class="page left-page">
+                <h2>Dlaczego budzi mój podziw?</h2>
+                <ul style="list-style-type: none; padding-left: 10px; font-size: 18px; line-height: 1.5; color: #332211;">
+                    <li style="margin-bottom: 20px;">
+                        <strong>Badanie nieznanego:</strong>
+                        <ul style="list-style-type: circle; padding-left: 20px; font-size: 16px; margin-top: 5px; color: #5d3a1a;">
+                            <li>W dawnych czasach pierwiastki te i promieniotwórczość były w dużej mierze nieznane ludzkości.</li>
+                        </ul>
+                    </li>
+                    <li style="margin-bottom: 20px;">
+                        <strong>Warunki pracy:</strong>
+                        <ul style="list-style-type: circle; padding-left: 20px; font-size: 16px; margin-top: 5px; color: #5d3a1a;">
+                            <li>Większość prac została wykonana w starej szopie, a nie w nowoczesnym laboratorium.</li>
+                        </ul>
+                    </li>
+                    <li style="margin-bottom: 20px;">
+                        <strong>Walka z systemem:</strong>
+                        <ul style="list-style-type: circle; padding-left: 20px; font-size: 16px; margin-top: 5px; color: #5d3a1a;">
+                            <li>Co prawda nie mogła studiować w Polsce, jednak nie poddała się i przeniosła się do Paryża.</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="page-num">4</div>
+            </div>
+            <div class="page right-page">
+                <div class="photo-frame rotate-left" style="margin-top: 10px; max-width: 75%;">
+                    <img src="https://st2.depositphotos.com/7164006/10787/i/950/depositphotos_107876418-stock-photo-sculpture-of-marie-sklodowska-curie.jpg" alt="Marie Curie Statue">
+                </div>
+                <div class="page-num">5</div>
+            </div>
+        </div>
+
+        <!-- Final Spread (KONIEC) -->
+        <div class="spread double">
+            <div class="page left-page">
+                <div class="koniec-text">Koniec</div>
+                <div class="page-num">6</div>
+            </div>
+            <div class="page right-page" style="padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+                <div class="scatter-container" id="final-scatter-container">
+                    <!-- Dynamic Photos Loaded via JS -->
+                </div>
+                <div class="page-num">7</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+    </div>
+</div>
+
+<!-- Timeline Popup UI -->
+<div id="timeline-overlay" onclick="closePopup()"></div>
+<div id="timeline-popup">
+    <h3 id="popup-year"></h3>
+    <div class="img-container" id="popup-img-container">
+        <div class="spinner"></div>
+        <img id="popup-img" src="" alt="Timeline" style="width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s ease;">
+    </div>
+    <p id="popup-text"></p>
+    <button class="close-popup" onclick="closePopup()">Zamknij</button>
+</div>
+
+<button id="fullscreen-btn" onclick="toggleFullScreen()" title="Toggle Fullscreen">
+    <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+</button>
+
+<script>
+    let currentSpreadIndex = 0;
+    const spreads = document.querySelectorAll('.spread');
+
+    function showSpread(index) {
+        spreads.forEach((spread, i) => {
+            spread.classList.remove('active');
+            if (i === index) {
+                spread.classList.add('active');
+            }
+        });
+        if (index === spreads.length - 1) {
+            initPhotoScatter();
+        }
+    }
+
+    // Dynamic Photo Scatter Logic
+    const photoUrls = [
+        "https://upload.wikimedia.org/wikipedia/commons/4/41/Pierre_Curie_%281859-1906%29_and_Marie_Sklodowska_Curie_%281867-1934%29%2C_c._1903_%284405627519%29.jpg",
+        "https://youth.europa.eu/sites/default/files/nnfe-people/43.jpg",
+        "https://www.seilnacht.com/Lexikon/pechble2.JPG",
+        "https://upload.wikimedia.org/wikipedia/commons/c/c8/Pomnik_Marii_Skłodowskiej-Curie_w_Warszawie.jpg",
+        "https://upload.wikimedia.org/wikipedia/commons/9/9c/P1300735_Paris_V_chapelle_La_Sorbonne_rwk.jpg",
+        "https://images.ctfassets.net/i01duvb6kq77/2f7eaa189de3112e488c0c901180d44a/fadb0591efa941aa84849c13bc72af82/Curie.jpg?w=1100&q=80&fm=webp",
+        "https://upload.wikimedia.org/wikipedia/commons/0/08/Amphithéâtre_Sorbone.JPG",
+        "https://www.meisterdrucke.com/kunstwerke/1260px/Unbekannt_-_Marie_Sklodowska_Curie_Polish-born_French_physicist_1904_-_%28MeisterDrucke-729768%29.jpg",
+        "https://www.ardalpha.de/wissen/geschichte/historische-persoenlichkeiten/marie-curie-physik-chemie-nobelpreis-roentgenwagen-100~_v-img__16__9__xl_-d31c35f8186ebeb80b0cd843a7c267a0e0c81647.jpg?version=e856a",
+        "https://thumbs.dreamstime.com/b/marie-sklodowska-curie-monument-71469540.jpg",
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Radium226.jpg/250px-Radium226.jpg",
+        "https://dam.production.vlm.nmheagle.sk/api/image/640x426/e7a/e7ad44ee-7217-455e-8eb3-76981b110beb.webp",
+        "https://upload.wikimedia.org/wikipedia/commons/0/03/Radiation_warning_symbol.png"
+    ];
+
+    function initPhotoScatter() {
+        const container = document.getElementById('final-scatter-container');
+        container.innerHTML = ''; // Clear existing
+        
+        const shuffled = [...photoUrls].sort(() => Math.random() - 0.5);
+        const count = shuffled.length;
+        const goldenAngle = 137.508; // Golden angle in degrees
+        
+        shuffled.forEach((url, i) => {
+            const photo = document.createElement('div');
+            photo.className = 'scatter-photo';
+            const img = document.createElement('img');
+            img.src = url;
+            photo.appendChild(img);
+            
+            // Fermat's Spiral (Phyllotaxis) Algorithm for even distribution
+            const angle = i * goldenAngle * (Math.PI / 180);
+            const radiusScale = 12; // Adjust for spread
+            const r = radiusScale * Math.sqrt(i + 1);
+            
+            // Calculate position with slight jitter for organic feel
+            const jitterX = (Math.random() * 4) - 2;
+            const jitterY = (Math.random() * 4) - 2;
+            
+            // Center is (50, 50). Adjust X by 0.8 for page aspect ratio
+            const x = 50 + (Math.cos(angle) * r * 0.9) + jitterX;
+            const y = 50 + (Math.sin(angle) * r) + jitterY;
+            
+            photo.style.left = x + '%';
+            photo.style.top = y + '%';
+            photo.style.width = (110 + Math.random() * 50) + 'px';
+            photo.style.zIndex = i;
+
+            // Individual animation variables
+            const rot = (Math.random() * 30) - 15;
+            const tx = (Math.cos(angle) * 10); // Float away from center
+            const ty = (Math.sin(angle) * 10);
+            const delay = Math.random() * 3;
+            
+            photo.style.setProperty('--rot', rot + 'deg');
+            photo.style.setProperty('--tx', tx + 'px');
+            photo.style.setProperty('--ty', ty + 'px');
+            photo.style.animationDelay = delay + 's';
+            
+            container.appendChild(photo);
+        });
+    }
+
+    function nextSpread() {
+        if (currentSpreadIndex < spreads.length - 1) {
+            currentSpreadIndex++;
+            showSpread(currentSpreadIndex);
+        }
+    }
+
+    function prevSpread() {
+        if (currentSpreadIndex > 0) {
+            currentSpreadIndex--;
+            showSpread(currentSpreadIndex);
+        }
+    }
+
+    // Swipe Detection
+    let touchstartX = 0;
+    let touchendX = 0;
+    const book = document.getElementById('book');
+
+    book.addEventListener('touchstart', e => {
+        touchstartX = e.changedTouches[0].screenX;
+    });
+
+    book.addEventListener('touchend', e => {
+        touchendX = e.changedTouches[0].screenX;
+        handleSwipe();
+    });
+
+    function handleSwipe() {
+        const threshold = 50;
+        if (touchendX < touchstartX - threshold) nextSpread();
+        if (touchendX > touchstartX + threshold) prevSpread();
+    }
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowRight') nextSpread();
+        if (e.key === 'ArrowLeft') prevSpread();
+        if (e.key === 'f' || e.key === 'F') toggleFullScreen();
+    });
+
+    // Handle Preloader
+    window.addEventListener('load', () => {
+        const preloader = document.getElementById('preloader');
+        setTimeout(() => {
+            preloader.style.opacity = '0';
+            setTimeout(() => preloader.style.display = 'none', 500);
+        }, 1200);
+    });
+
+    // Timeline Popup Logic
+    function showPopup(year, text, imgSrc) {
+        document.getElementById('popup-year').innerText = year;
+        document.getElementById('popup-text').innerText = text;
+        const container = document.getElementById('popup-img-container');
+        const img = document.getElementById('popup-img');
+        const spinner = container.querySelector('.spinner');
+        
+        if (imgSrc) {
+            container.style.display = 'block';
+            spinner.style.display = 'block';
+            img.style.opacity = '0';
+            img.src = imgSrc;
+            
+            // If already cached, show immediately
+            if (img.complete) {
+                img.style.opacity = '1';
+                spinner.style.display = 'none';
+            } else {
+                img.onload = () => {
+                    img.style.opacity = '1';
+                    spinner.style.display = 'none';
+                };
+            }
+        } else {
+            container.style.display = 'none';
+        }
+        
+        document.getElementById('timeline-overlay').style.display = 'block';
+        document.getElementById('timeline-popup').style.display = 'block';
+    }
+
+    function closePopup() {
+        document.getElementById('timeline-overlay').style.display = 'none';
+        document.getElementById('timeline-popup').style.display = 'none';
+    }
+
+    // Drag-to-Scroll Logic for Timeline
+    const slider = document.getElementById('timeline-scroll');
+    let isDown = false;
+    let startX;
+    let scrollLeft;
+
+    slider.addEventListener('mousedown', (e) => {
+        isDown = true;
+        slider.style.cursor = 'grabbing';
+        startX = e.pageX - slider.offsetLeft;
+        scrollLeft = slider.scrollLeft;
+    });
+    slider.addEventListener('mouseleave', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+    });
+    slider.addEventListener('mouseup', () => {
+        isDown = false;
+        slider.style.cursor = 'grab';
+    });
+    slider.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - slider.offsetLeft;
+        const walk = (x - startX) * 2; // scroll speed multiplier
+        slider.scrollLeft = scrollLeft - walk;
+    });
+
+    // Fullscreen Logic
+    function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().then(() => {
+                document.body.classList.add('fullscreen');
+            }).catch(err => {
+                alert(`Error: ${err.message}`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                document.body.classList.remove('fullscreen');
+            }
+        }
+    }
+
+    // Listen for fullscreen change events (e.g. Esc key)
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            document.body.classList.remove('fullscreen');
+        } else {
+            document.body.classList.add('fullscreen');
+        }
+    });
+</script>
+</body>
+</html>
