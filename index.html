@@ -606,12 +606,37 @@
             border-bottom-left-radius: 2px;
             border: 1px solid #d4c4a8;
         }
+        .curie-msg-container {
+            align-self: flex-start;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            max-width: 85%;
+            gap: 2px;
+        }
         .message.user {
             align-self: flex-end;
             background: #3e1f0e;
             color: #f4ebd0;
             border-bottom-right-radius: 2px;
         }
+        .tts-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 8px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            color: #6d4c2f;
+            font-style: italic;
+            font-family: 'Georgia', serif;
+        }
+        .tts-btn:hover { opacity: 1; }
+        .tts-btn svg { width: 14px; height: 14px; fill: #6d4c2f; margin-right: 4px; }
+        
         .chat-input-area {
             display: flex;
             padding: 10px;
@@ -860,7 +885,12 @@
             <div class="page right-page">
                 <div class="chat-container">
                     <div class="chat-messages" id="chat-messages">
-                        <div class="message curie">Dzień dobry. Jestem Maria. O czym chciałbyś dzisiaj porozmawiać?</div>
+                        <div class="curie-msg-container">
+                            <div class="message curie">Dzień dobry. Jestem Maria. O czym chciałbyś dzisiaj porozmawiać?</div>
+                            <button class="tts-btn" onclick="speakText(this.previousElementSibling.innerText)">
+                                <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg> Słuchaj
+                            </button>
+                        </div>
                     </div>
                     <div class="chat-input-area">
                         <input type="text" id="chat-input" class="chat-input" placeholder="Napisz wiadomość..." onkeydown="if(event.key==='Enter') sendMessage()">
@@ -1141,7 +1171,8 @@
     });
 
     // AI Chat Logic
-    const OLLAMA_URL = 'http://88.152.148.254:11434';
+    // REPLACE the URL below with your https://...trycloudflare.com URL
+    const OLLAMA_URL = 'https://induced-objects-well-funky.trycloudflare.com';
 
     async function checkConnection() {
         const dot = document.getElementById('connection-dot');
@@ -1204,14 +1235,17 @@
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let fullText = '';
+            let buffer = ''; 
 
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-
+                buffer += decoder.decode(value, { stream: true });
+                
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // Keep the incomplete line in the buffer
+                
                 for (const line of lines) {
                     if (!line.trim()) continue;
                     try {
@@ -1222,7 +1256,7 @@
                             messagesContainer.scrollTop = messagesContainer.scrollHeight;
                         }
                     } catch (e) {
-                        console.error('Błąd parsowania streamu:', e);
+                        console.error('Błąd parsowania JSON:', e);
                     }
                 }
             }
@@ -1235,12 +1269,54 @@
 
     function appendMessage(sender, text) {
         const container = document.getElementById('chat-messages');
-        const msgDiv = document.createElement('div');
-        msgDiv.className = `message ${sender}`;
-        msgDiv.innerText = text;
-        container.appendChild(msgDiv);
-        container.scrollTop = container.scrollHeight;
-        return msgDiv;
+        
+        if (sender === 'curie') {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'curie-msg-container';
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            msgDiv.innerText = text;
+            wrapper.appendChild(msgDiv);
+
+            const ttsBtn = document.createElement('button');
+            ttsBtn.className = 'tts-btn';
+            ttsBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg> Słuchaj`;
+            ttsBtn.onclick = () => speakText(msgDiv.innerText);
+            wrapper.appendChild(ttsBtn);
+
+            container.appendChild(wrapper);
+            container.scrollTop = container.scrollHeight;
+            return msgDiv;
+        } else {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${sender}`;
+            msgDiv.innerText = text;
+            container.appendChild(msgDiv);
+            container.scrollTop = container.scrollHeight;
+            return msgDiv;
+        }
+    }
+
+    function speakText(text) {
+        if (!window.speechSynthesis) return;
+        
+        // Cancel any current speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pl-PL';
+        
+        // Find a Polish female voice if possible
+        const voices = window.speechSynthesis.getVoices();
+        const plVoice = voices.find(v => v.lang.startsWith('pl') && v.name.includes('Female')) || 
+                        voices.find(v => v.lang.startsWith('pl'));
+        
+        if (plVoice) utterance.voice = plVoice;
+        utterance.pitch = 1.1; // Slightly higher for feminine tone
+        utterance.rate = 0.95; // Slightly slower for clarity
+        
+        window.speechSynthesis.speak(utterance);
     }
 
     // Fullscreen Logic
